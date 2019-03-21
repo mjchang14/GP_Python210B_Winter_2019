@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import math
+import sys
+import os
+import datetime
 
 def get_donor_data():
     """
@@ -30,6 +33,14 @@ class Donor():
                 self.donation = list(donation)
             except TypeError:
                 self.donation[donation]
+
+    @staticmethod
+    def standard_name(name):
+        """
+        capitalizing name to give it a standard format for comparison
+        """
+        return name.title()
+
 
     @staticmethod
     def valid_donation(donation):
@@ -66,7 +77,7 @@ class DonorCollection():
     database of all donors - use encapsulation
     """
     def __init__(self, donors=None):
-        #create new database if one doesn't exist already
+        #create new database if one doesn't exist already, use dicts?
         if donors is None:
             self.donor_info = {}
 
@@ -75,11 +86,16 @@ class DonorCollection():
             self.donor_info = {x.name: x for x in donors}
 
 
+    @property
     def donors(self):
         return self.donor_info.values()
 
-    #create and return donor list as a string
+
     def donor_list(self):
+        """
+        create and return donor list as a string
+        that way it can be printed in list format with line returns
+        """
         d_list = []
         for donor in self.donors:
             d_list.append(donor.name)
@@ -92,22 +108,27 @@ class DonorCollection():
         return donor
 
 
-    def locate_donor(self, name, donation):
-        name = name.title()
+    def locate_donor(self, name):
+        """
+        check for donor in the db, breaking this out from checking for 
+        and creating a new donor
+        """
+        return self.donor_info.get(Donor.standard_name(name))
         
-        if name in donor_info:
-            return name
-        else:
-            try:
-                new_donor = self.donor_info[Donor.name]
-            except KeyError:
-                new_donor = self.add_donor(name)
-            
-            new_donor.add_donation(donation)
-            return new_donor
+        
+    def check_add_donor(self, name, donation):
+        """
+        check for a donor in db, if the inputted name isn't there
+        create a new donor and add their donation
+        """
 
-
-    
+        try:
+            new_donor = self.donor_info[Donor.standard_name(name)]
+        except KeyError:
+            new_donor = self.add_donor(name)
+        
+        new_donor.add_donation(donation)
+        return new_donor
 
 
     @staticmethod    
@@ -122,16 +143,16 @@ class DonorCollection():
         """
      
         spreadsheet = []
-        name = donor.name
-        gifts = donor.donation
-        total_gifts = sum(gifts)
-        num_gifts = len(gifts)
-        avg_gift = sum(gifts)/len(gifts)
-        for name, gifts in self.donor_info.values():
-            spreadsheet.append(name, total_gifts, num_gifts, avg_gift)
+        for donor in self.donor_info.values():
+            name = donor.name
+            gifts = donor.donation
+            total_gifts = sum(gifts)
+            num_gifts = len(gifts)
+            avg_gift = sum(gifts)/len(gifts)
+            spreadsheet.append((name, total_gifts, num_gifts, avg_gift))
 
-    #sort the report by total donation
-        spreadsheet.sort(key = sort_key)
+        #sort the report by total donation
+        spreadsheet.sort(key=self.sort_key)
         d_report = []
         d_report.append("{:<30} | {:<12} | {:>15} | {:12}".format("Donor Name",
                                                                   "Total Given", 
@@ -144,9 +165,6 @@ class DonorCollection():
             d_report.append("{:<30}  ${:12.2f}   {:>15}  ${:12.2f}".format(*data))
         return"\n".join(d_report)
 
-
-
-
     # @property
     # def total_donations(self):
     #     return sum(self.donation)
@@ -156,3 +174,26 @@ class DonorCollection():
     # @property
     # def average_donation(self):
     #     return self.total_donations / len(self.donation)
+
+    def write_letter(self, donor):
+        """
+        create a thank you letter to the donor
+        """
+        return ('Dear {},'
+                '\n\nOn behalf of all of us,' 
+                'we thank you for your generous donation of $   {:10.2f}. '
+                '\n You have really helped the community!'.format(donor.name, donor.recent_donation))
+
+
+    def write_to_disk(self):
+
+        path = os.getcwd()
+        folder = path + '/donor_letters/'
+        os.mkdir(folder)
+        os.chdir(folder)
+        for donor in self.donor_info.values():
+            letter = self.write_letter(donor)
+        
+        timestamp = str(datetime.date.today())
+        filename = donor.name.replace(" ", "_") + timestamp + ".txt"
+        open(filename, 'w').write(letter)
